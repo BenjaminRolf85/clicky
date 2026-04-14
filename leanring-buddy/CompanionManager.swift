@@ -170,7 +170,7 @@ final class CompanionManager: ObservableObject {
     }
 
     /// Whether the user has submitted their email during onboarding.
-    @Published var hasSubmittedEmail: Bool = UserDefaults.standard.bool(forKey: "hasSubmittedEmail")
+    @Published var hasSubmittedEmail: Bool = true  // ECHO: email step skipped
 
     /// Submits the user's email for ECHO onboarding.
     func submitEmail(_ email: String) {
