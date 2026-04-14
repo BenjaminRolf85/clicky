@@ -172,13 +172,12 @@ final class CompanionManager: ObservableObject {
     /// Whether the user has submitted their email during onboarding.
     @Published var hasSubmittedEmail: Bool = UserDefaults.standard.bool(forKey: "hasSubmittedEmail")
 
-    /// Submits the user's email for ECHO onboarding for analytics.
-        func submitEmail(_ email: String) {
+    /// Submits the user's email for ECHO onboarding.
+    func submitEmail(_ email: String) {
         let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedEmail.isEmpty else { return }
         hasSubmittedEmail = true
         UserDefaults.standard.set(true, forKey: "hasSubmittedEmail")
-    }
     }
 
     func start() {
