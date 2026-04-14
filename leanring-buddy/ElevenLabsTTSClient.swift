@@ -1,10 +1,13 @@
 //
 //  ElevenLabsTTSClient.swift
-//  leanring-buddy
+//  ECHO — by Echomotion
 //
-//  Streams text-to-speech audio from ElevenLabs and plays it back
-//  through the system audio output. Uses the streaming endpoint so
-//  playback begins before the full audio has been generated.
+//  TTS powered by Fish Audio (api.fish.audio) instead of ElevenLabs.
+//  The class name is kept for backward compatibility with all call sites.
+//
+//  API: POST https://api.fish.audio/v1/tts
+//  Auth: Authorization: Bearer <api_key>
+//  Returns: raw MP3 audio bytes
 //
 
 import AVFoundation
@@ -12,52 +15,58 @@ import Foundation
 
 @MainActor
 final class ElevenLabsTTSClient {
-    private let proxyURL: URL
+
+    private let apiKey: String
+    private let referenceId: String   // Fish Audio voice/model ID
     private let session: URLSession
 
-    /// The audio player for the current TTS playback. Kept alive so the
-    /// audio finishes playing even if the caller doesn't hold a reference.
     private var audioPlayer: AVAudioPlayer?
 
+    /// proxyURL parameter is accepted but ignored — Fish Audio is called directly.
+    /// apiKey and referenceId are read from the app bundle Info.plist or environment.
     init(proxyURL: String) {
-        self.proxyURL = URL(string: proxyURL)!
+        // Read Fish Audio credentials from Info.plist build settings
+        self.apiKey    = AppBundleConfiguration.stringValue(forKey: "FISH_AUDIO_API_KEY")   ?? ""
+        self.referenceId = AppBundleConfiguration.stringValue(forKey: "FISH_AUDIO_VOICE_ID") ?? ""
 
-        let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 30
-        configuration.timeoutIntervalForResource = 60
-        self.session = URLSession(configuration: configuration)
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest  = 30
+        config.timeoutIntervalForResource = 60
+        self.session = URLSession(configuration: config)
     }
 
-    /// Sends `text` to ElevenLabs TTS and plays the resulting audio.
-    /// Throws on network or decoding errors. Cancellation-safe.
+    /// Sends `text` to Fish Audio TTS and plays the resulting MP3.
     func speakText(_ text: String) async throws {
-        var request = URLRequest(url: proxyURL)
+        guard !apiKey.isEmpty else {
+            throw NSError(
+                domain: "FishAudioTTS", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "FISH_AUDIO_API_KEY not set in build settings"]
+            )
+        }
+
+        var request = URLRequest(url: URL(string: "https://api.fish.audio/v1/tts")!)
         request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("audio/mpeg", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json",  forHTTPHeaderField: "Content-Type")
+        // Model header: s1 (fast) or s2-pro (higher quality)
+        request.setValue("s1", forHTTPHeaderField: "model")
 
-        let body: [String: Any] = [
-            "text": text,
-            "model_id": "eleven_flash_v2_5",
-            "voice_settings": [
-                "stability": 0.5,
-                "similarity_boost": 0.75
-            ]
-        ]
-
+        var body: [String: Any] = ["text": text, "format": "mp3"]
+        if !referenceId.isEmpty {
+            body["reference_id"] = referenceId
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await session.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "ElevenLabsTTS", code: -1,
+        guard let http = response as? HTTPURLResponse else {
+            throw NSError(domain: "FishAudioTTS", code: -1,
                           userInfo: [NSLocalizedDescriptionKey: "Invalid response"])
         }
-
-        guard (200...299).contains(httpResponse.statusCode) else {
-            let errorBody = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "ElevenLabsTTS", code: httpResponse.statusCode,
-                          userInfo: [NSLocalizedDescriptionKey: "TTS API error (\(httpResponse.statusCode)): \(errorBody)"])
+        guard (200...299).contains(http.statusCode) else {
+            let msg = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "FishAudioTTS", code: http.statusCode,
+                          userInfo: [NSLocalizedDescriptionKey: "Fish Audio error (\(http.statusCode)): \(msg)"])
         }
 
         try Task.checkCancellation()
@@ -65,15 +74,11 @@ final class ElevenLabsTTSClient {
         let player = try AVAudioPlayer(data: data)
         self.audioPlayer = player
         player.play()
-        print("🔊 ElevenLabs TTS: playing \(data.count / 1024)KB audio")
+        print("🔊 Fish Audio TTS: playing \(data.count / 1024)KB audio")
     }
 
-    /// Whether TTS audio is currently playing back.
-    var isPlaying: Bool {
-        audioPlayer?.isPlaying ?? false
-    }
+    var isPlaying: Bool { audioPlayer?.isPlaying ?? false }
 
-    /// Stops any in-progress playback immediately.
     func stopPlayback() {
         audioPlayer?.stop()
         audioPlayer = nil

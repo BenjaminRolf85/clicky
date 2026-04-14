@@ -6,13 +6,13 @@
  *
  * Routes:
  *   POST /chat  → Anthropic Messages API (streaming)
- *   POST /tts   → ElevenLabs TTS API
+ *   POST /tts   → Fish Audio TTS API
  */
 
 interface Env {
   ANTHROPIC_API_KEY: string;
-  ELEVENLABS_API_KEY: string;
-  ELEVENLABS_VOICE_ID: string;
+  FISH_AUDIO_API_KEY: string;
+  FISH_AUDIO_VOICE_ID: string;
   ASSEMBLYAI_API_KEY: string;
 }
 
@@ -108,24 +108,29 @@ async function handleTranscribeToken(env: Env): Promise<Response> {
 
 async function handleTTS(request: Request, env: Env): Promise<Response> {
   const body = await request.text();
-  const voiceId = env.ELEVENLABS_VOICE_ID;
+  const parsed = JSON.parse(body);
 
-  const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-    {
-      method: "POST",
-      headers: {
-        "xi-api-key": env.ELEVENLABS_API_KEY,
-        "content-type": "application/json",
-        accept: "audio/mpeg",
-      },
-      body,
-    }
-  );
+  const fishBody: Record<string, unknown> = {
+    text: parsed.text,
+    format: "mp3",
+  };
+  if (env.FISH_AUDIO_VOICE_ID) {
+    fishBody["reference_id"] = env.FISH_AUDIO_VOICE_ID;
+  }
+
+  const response = await fetch("https://api.fish.audio/v1/tts", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.FISH_AUDIO_API_KEY}`,
+      "content-type": "application/json",
+      model: "s1",
+    },
+    body: JSON.stringify(fishBody),
+  });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`[/tts] ElevenLabs API error ${response.status}: ${errorBody}`);
+    console.error(`[/tts] Fish Audio API error ${response.status}: ${errorBody}`);
     return new Response(errorBody, {
       status: response.status,
       headers: { "content-type": "application/json" },
