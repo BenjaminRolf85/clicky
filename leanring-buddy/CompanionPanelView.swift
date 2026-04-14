@@ -62,7 +62,7 @@ struct CompanionPanelView: View {
                 Spacer()
                     .frame(height: 16)
 
-                dmFarzaButton
+                echoFeedbackButton
                     .padding(.horizontal, 16)
             }
 
@@ -161,16 +161,16 @@ struct CompanionPanelView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Hi, I'm Farza. This is ECHO.")
+                Text("Hi, this is ECHO — by Echomotion.")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundColor(DS.Colors.textSecondary)
 
-                Text("A side project I made for fun to help me learn stuff as I use my computer.")
+                Text("Your always-on AI companion. Ask anything, point at anything, get things done.")
                     .font(.system(size: 11))
                     .foregroundColor(DS.Colors.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                Text("Nothing runs in the background. ECHO will only take a screenshot when you press the hot key. So, you can give that permission in peace. If you are still sus, eh, I can't do much there champ.")
+                Text("ECHO only captures your screen when you press the hotkey. No background recording, no data leaves your machine except via the AI API.")
                     .font(.system(size: 11))
                     .foregroundColor(Color(red: 0.9, green: 0.4, blue: 0.4))
                     .fixedSize(horizontal: false, vertical: true)
@@ -641,11 +641,11 @@ struct CompanionPanelView: View {
         .pointerCursor()
     }
 
-    // MARK: - DM Farza Button
+    // MARK: - Echomotion Feedback Button
 
-    private var dmFarzaButton: some View {
+    private var echoFeedbackButton: some View {
         Button(action: {
-            if let url = URL(string: "https://x.com/farzatv") {
+            if let url = URL(string: "mailto:hello@echomotion.ai") {
                 NSWorkspace.shared.open(url)
             }
         }) {
@@ -654,9 +654,9 @@ struct CompanionPanelView: View {
                     .font(.system(size: 12, weight: .medium))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Got feedback? DM me")
+                    Text("Got feedback? Contact Echomotion")
                         .font(.system(size: 12, weight: .semibold))
-                    Text("Bugs, ideas, anything — I read every message.")
+                    Text("hello@echomotion.ai — bugs, ideas, anything")
                         .font(.system(size: 10))
                         .foregroundColor(DS.Colors.textTertiary)
                 }
