@@ -1,7 +1,7 @@
 import Foundation
 
 /// Loads SOUL.md from the app bundle root (next to the .app) or the project root.
-/// The SOUL.md text is injected into Claude's system prompt so Clicky can have
+/// The SOUL.md text is injected into Claude's system prompt so ECHO can have
 /// a custom personality — the same pattern Zippy uses on Windows.
 enum SOULConfiguration {
 
