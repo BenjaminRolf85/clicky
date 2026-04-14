@@ -165,7 +165,7 @@ final class CompanionManager: ObservableObject {
     /// Whether the user has completed onboarding at least once. Persisted
     /// to UserDefaults so the Start button only appears on first launch.
     var hasCompletedOnboarding: Bool {
-        get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
+        get { true }  // ECHO: onboarding always complete
         set { UserDefaults.standard.set(newValue, forKey: "hasCompletedOnboarding") }
     }
 
