@@ -88,6 +88,30 @@ final class CompanionManager: ObservableObject {
     /// speaks again so a new response can begin immediately.
     private var currentResponseTask: Task<Void, Never>?
 
+    // MARK: - Handoff Support (Zippy-style)
+
+    /// Dispatches "nimm codex", "nimm openclaw", "nimm claude code" voice commands
+    /// to the matching local CLI tool instead of sending them to Claude.
+    private var handoffRunner: HandoffRunner = {
+        var runner = HandoffRunner()
+        // Load config from environment / .env if present
+        var env: [String: String] = [:]
+        let envPath = Bundle.main.bundleURL
+            .deletingLastPathComponent()
+            .appendingPathComponent(".env").path
+        if let raw = try? String(contentsOfFile: envPath, encoding: .utf8) {
+            for line in raw.components(separatedBy: .newlines) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.hasPrefix("#"), let eqRange = trimmed.range(of: "=") else { continue }
+                let key   = String(trimmed[trimmed.startIndex ..< eqRange.lowerBound])
+                let value = String(trimmed[eqRange.upperBound...])
+                env[key] = value
+            }
+        }
+        runner.configure(from: env)
+        return runner
+    }()
+
     private var shortcutTransitionCancellable: AnyCancellable?
     private var voiceStateCancellable: AnyCancellable?
     private var audioPowerCancellable: AnyCancellable?
@@ -541,7 +565,10 @@ final class CompanionManager: ObservableObject {
 
     // MARK: - Companion Prompt
 
-    private static let companionVoiceResponseSystemPrompt = """
+    private static let companionVoiceResponseSystemPrompt: String = {
+        // Prepend SOUL.md personality if one is present next to the app.
+        let soulPrefix = SOULConfiguration.systemPromptPrefix()
+        let base = """
     you're clicky, a friendly always-on companion that lives in the user's menu bar. the user just spoke to you via push-to-talk and you can see their screen(s). your reply will be spoken aloud via text-to-speech, so write the way you'd actually talk. this is an ongoing conversation — you remember everything they've said before.
 
     rules:
@@ -575,6 +602,8 @@ final class CompanionManager: ObservableObject {
     - user asks how to commit in xcode: "see that source control menu up top? click that and hit commit, or you can use command option c as a shortcut. [POINT:285,11:source control]"
     - element is on screen 2 (not where cursor is): "that's over on your other monitor — see the terminal window? [POINT:400,300:terminal:screen2]"
     """
+        return soulPrefix.isEmpty ? base : soulPrefix + base
+    }()
 
     // MARK: - AI Response Pipeline
 
@@ -586,6 +615,27 @@ final class CompanionManager: ObservableObject {
     private func sendTranscriptToClaudeWithScreenshot(transcript: String) {
         currentResponseTask?.cancel()
         elevenLabsTTSClient.stopPlayback()
+
+        // --- Zippy-style Handoff ---
+        // If the transcript starts with a trigger phrase ("nimm openclaw",
+        // "nimm codex", "nimm claude code", or their English equivalents),
+        // route to the matching local CLI tool instead of Claude.
+        if let (tool, prompt) = HandoffDetector.detect(in: transcript) {
+            currentResponseTask = Task {
+                voiceState = .processing
+                do {
+                    let result = try await handoffRunner.run(tool: tool, prompt: prompt)
+                    guard !Task.isCancelled else { return }
+                    let summary = String(result.output.prefix(300))
+                    let spoken  = summary.isEmpty ? "\(tool.rawValue) finished." : summary
+                    await speak(spoken)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    await speak("\(tool.rawValue) ran into an error: \(error.localizedDescription)")
+                }
+            }
+            return
+        }
 
         currentResponseTask = Task {
             // Stay in processing (spinner) state — no streaming text displayed
@@ -753,6 +803,19 @@ final class CompanionManager: ObservableObject {
             overlayWindowManager.fadeOutAndHideOverlay()
             isOverlayVisible = false
         }
+    }
+
+    /// Convenience: speak text via ElevenLabs TTS (used by handoff results).
+    private func speak(_ text: String) async {
+        voiceState = .responding
+        do {
+            try await elevenLabsTTSClient.speakText(text)
+        } catch {
+            // Fall back to system TTS so the user gets audio feedback.
+            let synthesizer = NSSpeechSynthesizer()
+            synthesizer.startSpeaking(text)
+        }
+        voiceState = .idle
     }
 
     /// Speaks a hardcoded error message using macOS system TTS when API
