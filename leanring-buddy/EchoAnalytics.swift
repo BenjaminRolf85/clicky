@@ -50,3 +50,6 @@ enum EchoAnalytics {
 
 /// Backward-compat alias so call sites that still say ClickyAnalytics compile.
 typealias ClickyAnalytics = EchoAnalytics
+
+/// Alias used in CompanionManager call sites.
+typealias ECHOAnalytics = EchoAnalytics
