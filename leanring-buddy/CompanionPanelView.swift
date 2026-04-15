@@ -13,6 +13,8 @@ import SwiftUI
 struct CompanionPanelView: View {
     @ObservedObject var companionManager: CompanionManager
     @State private var emailInput: String = ""
+    @State private var micTestStatus: String = ""
+    @State private var micTestRunning: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -61,6 +63,12 @@ struct CompanionPanelView: View {
             if companionManager.hasCompletedOnboarding && companionManager.allPermissionsGranted {
                 Spacer()
                     .frame(height: 16)
+
+                micTestRow
+                    .padding(.horizontal, 16)
+
+                Spacer()
+                    .frame(height: 8)
 
                 echoFeedbackButton
                     .padding(.horizontal, 16)
@@ -639,6 +647,70 @@ struct CompanionPanelView: View {
         }
         .buttonStyle(.plain)
         .pointerCursor()
+    }
+
+    // MARK: - Mic Test
+
+    private var micTestRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Button(action: {
+                    guard !micTestRunning else { return }
+                    micTestRunning = true
+                    micTestStatus = "Testing..."
+                    AVCaptureDevice.requestAccess(for: .audio) { granted in
+                        DispatchQueue.main.async {
+                            if granted {
+                                let session = AVCaptureSession()
+                                guard let mic = AVCaptureDevice.default(for: .audio),
+                                      let input = try? AVCaptureDeviceInput(device: mic) else {
+                                    micTestStatus = "❌ No microphone found"
+                                    micTestRunning = false
+                                    return
+                                }
+                                session.addInput(input)
+                                session.startRunning()
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                    session.stopRunning()
+                                    micTestStatus = "✅ Microphone works!"
+                                    micTestRunning = false
+                                }
+                            } else {
+                                micTestStatus = "❌ Permission denied"
+                                micTestRunning = false
+                            }
+                        }
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: micTestRunning ? "waveform" : "mic.fill")
+                            .font(.system(size: 12))
+                        Text(micTestRunning ? "Testing..." : "Test Microphone")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundColor(DS.Colors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: DS.CornerRadius.medium, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.CornerRadius.medium, style: .continuous)
+                            .stroke(DS.Colors.borderSubtle, lineWidth: 0.5)
+                    )
+                }
+                .buttonStyle(.plain)
+                .pointerCursor()
+            }
+            if !micTestStatus.isEmpty {
+                Text(micTestStatus)
+                    .font(.system(size: 11))
+                    .foregroundColor(micTestStatus.hasPrefix("✅") ? .green : .red)
+                    .padding(.horizontal, 4)
+            }
+        }
     }
 
     // MARK: - Echomotion Feedback Button
