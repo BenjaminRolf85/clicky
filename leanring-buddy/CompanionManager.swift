@@ -522,6 +522,10 @@ final class CompanionManager: ObservableObject {
             }
     
 
+            // Detect voice-only mode: Shift+Option = no screenshot
+            voiceOnlyMode = NSEvent.modifierFlags.contains(.shift) && !NSEvent.modifierFlags.contains(.control)
+            if voiceOnlyMode { print("🎙️ ECHO: Voice-only mode active (Shift+Option)") }
+
             ECHOAnalytics.trackPushToTalkStarted()
 
             pendingKeyboardShortcutStartTask?.cancel()
