@@ -19,6 +19,7 @@ enum BuddyPushToTalkShortcut {
         case controlOption
         case shiftControl
         case controlOptionSpace
+        case shiftOption
         case shiftControlSpace
 
         var displayText: String {
@@ -33,6 +34,8 @@ enum BuddyPushToTalkShortcut {
                 return "ctrl + option + space"
             case .shiftControlSpace:
                 return "shift + control + space"
+            case .shiftOption:
+                return "shift + option (voice only)"
             }
         }
 
@@ -48,6 +51,8 @@ enum BuddyPushToTalkShortcut {
                 return ["ctrl", "option", "space"]
             case .shiftControlSpace:
                 return ["shift", "control", "space"]
+            case .shiftOption:
+                return ["shift", "option"]
             }
         }
 
@@ -59,6 +64,8 @@ enum BuddyPushToTalkShortcut {
                 return [.control, .option]
             case .shiftControl:
                 return [.shift, .control]
+            case .shiftOption:
+                return [.shift, .option]
             case .controlOptionSpace, .shiftControlSpace:
                 return nil
             }
