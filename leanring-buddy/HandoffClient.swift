@@ -135,7 +135,20 @@ struct OpenClawClient {
     var timeoutSeconds: Int = 120
 
     func run(prompt: String) async throws -> HandoffResult {
-        var args = ["chat", "--session", sessionKey, "--message", prompt, "--no-input"]
+        // Prepend rich context so HAILY understands the source and intent
+        let context = """
+        [ECHO Handoff]
+        Quelle: ECHO by Echomotion — KI-Companion App auf Bens Mac
+        Nutzer: Benjamin Lange (CEO, Echomotion GmbH)
+        Modus: Sprachbefehl via Push-to-Talk (Ctrl+Option)
+        App: ECHO v1.0 — macOS Voice Assistant mit Screen-Awareness
+        Zweck: Ben hat per Sprache eine Aufgabe an HAILY delegiert.
+        HAILY soll die Aufgabe direkt ausführen und das Ergebnis zurückgeben.
+
+        Aufgabe von Ben: \(prompt)
+        """
+
+        var args = ["chat", "--session", sessionKey, "--message", context, "--no-input"]
         if !gatewayUrl.isEmpty   { args += ["--gateway-url",   gatewayUrl] }
         if !gatewayToken.isEmpty { args += ["--gateway-token", gatewayToken] }
 
@@ -145,7 +158,7 @@ struct OpenClawClient {
             timeoutSeconds: timeoutSeconds
         )
         return HandoffResult(
-            output: output.isEmpty ? "OpenClaw finished." : output,
+            output: output.isEmpty ? "OpenClaw: Aufgabe erledigt." : output,
             toolUsed: .openClaw
         )
     }
