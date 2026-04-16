@@ -87,6 +87,12 @@ final class CompanionManager: ObservableObject {
     /// speaks again so a new response can begin immediately.
     private var currentResponseTask: Task<Void, Never>?
 
+    // MARK: - Voice-Only Mode
+
+    /// When true, the next voice interaction sends NO screenshot to Claude.
+    /// Activated by Shift+Option hotkey (vs Ctrl+Option for screen-aware mode).
+    @Published private(set) var voiceOnlyMode: Bool = false
+
     // MARK: - Handoff Support (Zippy-style)
 
     /// Dispatches "nimm codex", "nimm openclaw", "nimm claude code" voice commands
@@ -626,14 +632,13 @@ final class CompanionManager: ObservableObject {
             voiceState = .processing
 
             do {
-                // Capture all connected screens so the AI has full context
-                let screenCaptures = try await CompanionScreenCaptureUtility.captureAllScreensAsJPEG()
+                // Voice-only mode: skip screenshot for privacy/speed
+                let screenCaptures: [CompanionScreenCapture] = voiceOnlyMode
+                    ? []
+                    : (try await CompanionScreenCaptureUtility.captureAllScreensAsJPEG())
 
                 guard !Task.isCancelled else { return }
 
-                // Build image labels with the actual screenshot pixel dimensions
-                // so Claude's coordinate space matches the image it sees. We
-                // scale from screenshot pixels to display points ourselves.
                 let labeledImages = screenCaptures.map { capture in
                     let dimensionInfo = " (image dimensions: \(capture.screenshotWidthInPixels)x\(capture.screenshotHeightInPixels) pixels)"
                     return (data: capture.imageData, label: capture.label + dimensionInfo)
