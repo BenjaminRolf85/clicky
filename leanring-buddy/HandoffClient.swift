@@ -39,7 +39,7 @@ enum HandoffDetector {
         let lower = transcript.lowercased().trimmingCharacters(in: .whitespaces)
         for (prefix, tool) in triggers {
             if lower.hasPrefix(prefix) {
-                var prompt = String(transcript.dropFirst(prefix.count))
+                let prompt = String(transcript.dropFirst(prefix.count))
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !prompt.isEmpty else { continue }
                 return (tool, prompt)
