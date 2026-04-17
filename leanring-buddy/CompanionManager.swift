@@ -832,42 +832,39 @@ final class CompanionManager: ObservableObject {
     /// Fast mode: split text into sentences and TTS each immediately.
     /// Shows typewriter effect + plays audio sentence-by-sentence.
     private func speakInSentences(_ text: String) async throws {
-        // Split on sentence endings followed by space or end
+        // Split on sentence-ending punctuation
         var sentences: [String] = []
         var current = ""
-        let terminators: Set<Character> = [".", "!", "?"]
 
-        for (i, char) in text.enumerated() {
+        for char in text {
             current.append(char)
-            let next = text.index(text.startIndex, offsetBy: i + 1, limitedBy: text.endIndex).map { text[$0] }
-            if terminators.contains(char) && (next == nil || next == " " || next == "
-") {
-                sentences.append(current.trimmingCharacters(in: .whitespaces))
+            let isPunctuation = (char == "." || char == "!" || char == "?")
+            if isPunctuation {
+                let trimmed = current.trimmingCharacters(in: .whitespaces)
+                if !trimmed.isEmpty { sentences.append(trimmed) }
                 current = ""
             }
         }
-        if !current.trimmingCharacters(in: .whitespaces).isEmpty {
-            sentences.append(current.trimmingCharacters(in: .whitespaces))
-        }
+        let remaining = current.trimmingCharacters(in: .whitespaces)
+        if !remaining.isEmpty { sentences.append(remaining) }
         if sentences.isEmpty { sentences = [text] }
 
-        // Speak each sentence, updating bubble text as we go
         var accumulated = ""
         for sentence in sentences {
             guard !Task.isCancelled else { return }
-            // Type out this sentence into the bubble
+            // Type each character into the bubble
             for ch in sentence {
                 accumulated.append(ch)
                 detectedElementBubbleText = accumulated
-                try await Task.sleep(nanoseconds: 30_000_000) // ~30ms per char
+                try await Task.sleep(nanoseconds: 35_000_000)
             }
             accumulated += " "
-            // TTS for this sentence
+            // Speak this sentence
             try await elevenLabsTTSClient.speakText(sentence)
         }
     }
 
-    /// Convenience: speak text via ElevenLabs TTS (used by handoff results).
+        /// Convenience: speak text via ElevenLabs TTS (used by handoff results).
     private func speak(_ text: String) async {
         voiceState = .responding
         do {
