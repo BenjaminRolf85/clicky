@@ -835,52 +835,40 @@ final class CompanionManager: ObservableObject {
         }
     }
 
-    /// Fast mode: split text into sentences and TTS each immediately.
-    /// Shows typewriter effect + plays audio sentence-by-sentence.
+    /// Fast mode: typewriter + per-sentence TTS (decoupled).
     private func speakInSentences(_ text: String) async throws {
-        // Split on sentence-ending punctuation
         var sentences: [String] = []
         var current = ""
-
         for char in text {
             current.append(char)
-            let isPunctuation = (char == "." || char == "!" || char == "?")
-            if isPunctuation {
-                let trimmed = current.trimmingCharacters(in: .whitespaces)
-                if !trimmed.isEmpty { sentences.append(trimmed) }
+            if char == "." || char == "!" || char == "?" {
+                let t = current.trimmingCharacters(in: .whitespaces)
+                if !t.isEmpty { sentences.append(t) }
                 current = ""
             }
         }
-        let remaining = current.trimmingCharacters(in: .whitespaces)
-        if !remaining.isEmpty { sentences.append(remaining) }
+        let rem = current.trimmingCharacters(in: .whitespaces)
+        if !rem.isEmpty { sentences.append(rem) }
         if sentences.isEmpty { sentences = [text] }
 
-        var accumulated = ""
+        // Typewriter: independent of TTS
+        let chars = Array(text)
+        typewriterTask = Task { @MainActor [weak self] in
+            var typed = ""
+            for ch in chars {
+                guard !Task.isCancelled, let self = self else { return }
+                typed.append(ch)
+                self.companionResponseOverlayManager.updateStreamingText(typed)
+                try? await Task.sleep(nanoseconds: 35_000_000)
+            }
+        }
+
+        // TTS per sentence — errors swallowed
         for sentence in sentences {
             guard !Task.isCancelled else { return }
-            // Type each character into the bubble
-            for ch in sentence {
-                accumulated.append(ch)
-                detectedElementBubbleText = accumulated
-                try await Task.sleep(nanoseconds: 35_000_000)
-            }
-            accumulated += " "
-            // Speak this sentence
-            try await elevenLabsTTSClient.speakText(sentence)
+            guard sentence.count >= 3 else { continue }
+            try? await elevenLabsTTSClient.speakText(sentence)
         }
-    }
-
-        /// Convenience: speak text via ElevenLabs TTS (used by handoff results).
-    private func speak(_ text: String) async {
-        voiceState = .responding
-        do {
-            try await elevenLabsTTSClient.speakText(text)
-        } catch {
-            // Fall back to system TTS so the user gets audio feedback.
-            let synthesizer = NSSpeechSynthesizer()
-            synthesizer.startSpeaking(text)
-        }
-        voiceState = .idle
     }
 
     /// Speaks a hardcoded error message using macOS system TTS when API
