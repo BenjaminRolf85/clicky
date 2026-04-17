@@ -85,6 +85,7 @@ final class CompanionManager: ObservableObject {
     /// The currently running AI response task, if any. Cancelled when the user
     /// speaks again so a new response can begin immediately.
     private var currentResponseTask: Task<Void, Never>?
+    private var typewriterTask: Task<Void, Never>?
 
     // MARK: - Voice-Only Mode
 
@@ -615,6 +616,9 @@ final class CompanionManager: ObservableObject {
     /// the buddy to fly to that element on screen.
     private func sendTranscriptToClaudeWithScreenshot(transcript: String) {
         currentResponseTask?.cancel()
+        typewriterTask?.cancel()
+        typewriterTask = nil
+        companionResponseOverlayManager.hideOverlay()
         elevenLabsTTSClient.stopPlayback()
 
         // --- Zippy-style Handoff ---
@@ -764,14 +768,16 @@ final class CompanionManager: ObservableObject {
                             let ttsDuration = max(2.0, Double(ttsChars.count) / 14.0)
                             let ttsInterval = ttsDuration / Double(max(1, ttsChars.count))
                             var ttsTyped = ""
-                            Task { @MainActor [weak self] in
+                            typewriterTask = Task { @MainActor [weak self] in
                                 for ch in ttsChars {
+                                    guard !Task.isCancelled else { return }
                                     guard let self = self else { return }
                                     ttsTyped.append(ch)
                                     self.companionResponseOverlayManager.updateStreamingText(ttsTyped)
                                     try? await Task.sleep(nanoseconds: UInt64(ttsInterval * 1_000_000_000))
                                 }
-                                self.companionResponseOverlayManager.finishStreaming()
+                                guard !Task.isCancelled else { return }
+                                self?.companionResponseOverlayManager.finishStreaming()
                             }
                             try await elevenLabsTTSClient.speakText(spokenText)
                         }
