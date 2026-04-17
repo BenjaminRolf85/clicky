@@ -743,9 +743,11 @@ final class CompanionManager: ObservableObject {
                 // until the audio actually starts playing, then switch to responding.
                 if !spokenText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     do {
-                        // Show response text in cursor bubble
+                        // Show response text with typewriter effect synced to TTS
                         companionResponseOverlayManager.showOverlayAndBeginStreaming()
-                        companionResponseOverlayManager.updateStreamingText(spokenText)
+                        // Estimate TTS duration: ~14 chars/second for ElevenLabs at normal speed
+                        let estimatedDuration = max(2.0, Double(spokenText.count) / 14.0)
+                        companionResponseOverlayManager.startTypewriter(text: spokenText, duration: estimatedDuration)
                         try await elevenLabsTTSClient.speakText(spokenText)
                         // speakText returns after player.play() — audio is now playing
                         voiceState = .responding
