@@ -52,6 +52,39 @@ final class CompanionResponseOverlayManager {
         resizePanelToFitContent()
     }
 
+    /// Reveals text progressively like a typewriter over `duration` seconds.
+    /// Call this instead of updateStreamingText when TTS is playing.
+    func startTypewriter(text: String, duration: TimeInterval) {
+        autoHideWorkItem?.cancel()
+        autoHideWorkItem = nil
+        overlayViewModel.streamingResponseText = ""
+
+        let chars = Array(text)
+        guard !chars.isEmpty else { return }
+
+        // Interval between characters — spread evenly over duration
+        let interval = max(0.02, duration / Double(chars.count))
+        var index = 0
+
+        // Use a timer to reveal one char at a time
+        var timer: Timer?
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] t in
+            guard let self = self else { t.invalidate(); return }
+            if index < chars.count {
+                DispatchQueue.main.async {
+                    self.overlayViewModel.streamingResponseText += String(chars[index])
+                    self.resizePanelToFitContent()
+                }
+                index += 1
+            } else {
+                t.invalidate()
+                timer = nil
+                DispatchQueue.main.async { self.finishStreaming() }
+            }
+        }
+        RunLoop.main.add(timer!, forMode: .common)
+    }
+
     func finishStreaming() {
         // Keep the response visible for a few seconds after streaming ends,
         // then fade out so the user has time to read the last chunk.
@@ -59,7 +92,7 @@ final class CompanionResponseOverlayManager {
             self?.fadeOutAndHide()
         }
         autoHideWorkItem = hideWork
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6, execute: hideWork)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12, execute: hideWork)
     }
 
     func hideOverlay() {
