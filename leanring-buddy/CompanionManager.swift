@@ -92,6 +92,14 @@ final class CompanionManager: ObservableObject {
     /// Activated by Shift+Option hotkey (vs Ctrl+Option for screen-aware mode).
     @Published private(set) var voiceOnlyMode: Bool = false
 
+    // MARK: - Fast Mode (Sentence-Streaming TTS)
+
+    /// When true, sentences are piped to TTS as soon as they complete
+    /// instead of waiting for the full Claude response.
+    @Published var fastMode: Bool = UserDefaults.standard.bool(forKey: "fastMode") {
+        didSet { UserDefaults.standard.set(fastMode, forKey: "fastMode") }
+    }
+
     // MARK: - Handoff Support (Zippy-style)
 
     /// Dispatches "nimm codex", "nimm openclaw", "nimm claude code" voice commands
@@ -744,22 +752,25 @@ final class CompanionManager: ObservableObject {
                 if !spokenText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     do {
                         // Show response text by typing it into the cursor bubble
-                        let ttsChars = Array(spokenText)
-                        let ttsDuration = max(2.0, Double(ttsChars.count) / 14.0)
-                        let ttsInterval = ttsDuration / Double(max(1, ttsChars.count))
-                        var ttsTyped = ""
-                        self.detectedElementBubbleText = ""
-
-                        // Kick off typewriter on main actor
-                        Task { @MainActor in
-                            for ch in ttsChars {
-                                ttsTyped.append(ch)
-                                self.detectedElementBubbleText = ttsTyped
-                                try? await Task.sleep(nanoseconds: UInt64(ttsInterval * 1_000_000_000))
+                        if fastMode {
+                            // FAST MODE: split into sentences, TTS each immediately
+                            try await speakInSentences(spokenText)
+                        } else {
+                            // STANDARD MODE: wait for full response, then TTS
+                            let ttsChars = Array(spokenText)
+                            let ttsDuration = max(2.0, Double(ttsChars.count) / 14.0)
+                            let ttsInterval = ttsDuration / Double(max(1, ttsChars.count))
+                            var ttsTyped = ""
+                            self.detectedElementBubbleText = ""
+                            Task { @MainActor in
+                                for ch in ttsChars {
+                                    ttsTyped.append(ch)
+                                    self.detectedElementBubbleText = ttsTyped
+                                    try? await Task.sleep(nanoseconds: UInt64(ttsInterval * 1_000_000_000))
+                                }
                             }
+                            try await elevenLabsTTSClient.speakText(spokenText)
                         }
-
-                        try await elevenLabsTTSClient.speakText(spokenText)
                         // speakText returns after player.play() — audio is now playing
                         voiceState = .responding
                     } catch {
@@ -815,6 +826,44 @@ final class CompanionManager: ObservableObject {
             guard !Task.isCancelled else { return }
             overlayWindowManager.fadeOutAndHideOverlay()
             isOverlayVisible = false
+        }
+    }
+
+    /// Fast mode: split text into sentences and TTS each immediately.
+    /// Shows typewriter effect + plays audio sentence-by-sentence.
+    private func speakInSentences(_ text: String) async throws {
+        // Split on sentence endings followed by space or end
+        var sentences: [String] = []
+        var current = ""
+        let terminators: Set<Character> = [".", "!", "?"]
+
+        for (i, char) in text.enumerated() {
+            current.append(char)
+            let next = text.index(text.startIndex, offsetBy: i + 1, limitedBy: text.endIndex).map { text[$0] }
+            if terminators.contains(char) && (next == nil || next == " " || next == "
+") {
+                sentences.append(current.trimmingCharacters(in: .whitespaces))
+                current = ""
+            }
+        }
+        if !current.trimmingCharacters(in: .whitespaces).isEmpty {
+            sentences.append(current.trimmingCharacters(in: .whitespaces))
+        }
+        if sentences.isEmpty { sentences = [text] }
+
+        // Speak each sentence, updating bubble text as we go
+        var accumulated = ""
+        for sentence in sentences {
+            guard !Task.isCancelled else { return }
+            // Type out this sentence into the bubble
+            for ch in sentence {
+                accumulated.append(ch)
+                detectedElementBubbleText = accumulated
+                try await Task.sleep(nanoseconds: 30_000_000) // ~30ms per char
+            }
+            accumulated += " "
+            // TTS for this sentence
+            try await elevenLabsTTSClient.speakText(sentence)
         }
     }
 
