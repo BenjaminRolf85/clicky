@@ -9,6 +9,7 @@
 //  Animates: glow on idle, pulse ring on listening, rotation on processing.
 //
 
+import Combine
 import SwiftUI
 
 // MARK: - Echo Logo Cursor View
