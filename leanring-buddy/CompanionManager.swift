@@ -753,21 +753,25 @@ final class CompanionManager: ObservableObject {
                     do {
                         // Show response text by typing it into the cursor bubble
                         if fastMode {
-                            // FAST MODE: split into sentences, TTS each immediately
+                            // FAST MODE: overlay + sentence streaming
+                            companionResponseOverlayManager.showOverlayAndBeginStreaming()
                             try await speakInSentences(spokenText)
+                            companionResponseOverlayManager.finishStreaming()
                         } else {
-                            // STANDARD MODE: wait for full response, then TTS
+                            // STANDARD MODE: show text in cursor overlay with typewriter
+                            companionResponseOverlayManager.showOverlayAndBeginStreaming()
                             let ttsChars = Array(spokenText)
                             let ttsDuration = max(2.0, Double(ttsChars.count) / 14.0)
                             let ttsInterval = ttsDuration / Double(max(1, ttsChars.count))
                             var ttsTyped = ""
-                            self.detectedElementBubbleText = ""
-                            Task { @MainActor in
+                            Task { @MainActor [weak self] in
                                 for ch in ttsChars {
+                                    guard let self = self else { return }
                                     ttsTyped.append(ch)
-                                    self.detectedElementBubbleText = ttsTyped
+                                    self.companionResponseOverlayManager.updateStreamingText(ttsTyped)
                                     try? await Task.sleep(nanoseconds: UInt64(ttsInterval * 1_000_000_000))
                                 }
+                                self.companionResponseOverlayManager.finishStreaming()
                             }
                             try await elevenLabsTTSClient.speakText(spokenText)
                         }
@@ -788,11 +792,6 @@ final class CompanionManager: ObservableObject {
             }
 
             if !Task.isCancelled {
-                // Clear bubble text after 12 seconds
-                Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 12_000_000_000)
-                    self.detectedElementBubbleText = nil
-                }
                 voiceState = .idle
                 scheduleTransientHideIfNeeded()
             }
