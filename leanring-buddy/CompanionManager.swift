@@ -871,6 +871,18 @@ final class CompanionManager: ObservableObject {
         }
     }
 
+    /// Convenience: speak text via ElevenLabs TTS (used by handoff results).
+    private func speak(_ text: String) async {
+        voiceState = .responding
+        do {
+            try await elevenLabsTTSClient.speakText(text)
+        } catch {
+            let synthesizer = NSSpeechSynthesizer()
+            synthesizer.startSpeaking(text)
+        }
+        voiceState = .idle
+    }
+
     /// Speaks a hardcoded error message using macOS system TTS when API
     /// credits run out. Uses NSSpeechSynthesizer so it works even when
     /// ElevenLabs is down.
