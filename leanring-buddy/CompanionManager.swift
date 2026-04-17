@@ -743,11 +743,22 @@ final class CompanionManager: ObservableObject {
                 // until the audio actually starts playing, then switch to responding.
                 if !spokenText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     do {
-                        // Show response text with typewriter effect synced to TTS
-                        companionResponseOverlayManager.showOverlayAndBeginStreaming()
-                        // Estimate TTS duration: ~14 chars/second for ElevenLabs at normal speed
-                        let estimatedDuration = max(2.0, Double(spokenText.count) / 14.0)
-                        companionResponseOverlayManager.startTypewriter(text: spokenText, duration: estimatedDuration)
+                        // Show response text by typing it into the cursor bubble
+                        let ttsChars = Array(spokenText)
+                        let ttsDuration = max(2.0, Double(ttsChars.count) / 14.0)
+                        let ttsInterval = ttsDuration / Double(max(1, ttsChars.count))
+                        var ttsTyped = ""
+                        self.detectedElementBubbleText = ""
+
+                        // Kick off typewriter on main actor
+                        Task { @MainActor in
+                            for ch in ttsChars {
+                                ttsTyped.append(ch)
+                                self.detectedElementBubbleText = ttsTyped
+                                try? await Task.sleep(nanoseconds: UInt64(ttsInterval * 1_000_000_000))
+                            }
+                        }
+
                         try await elevenLabsTTSClient.speakText(spokenText)
                         // speakText returns after player.play() — audio is now playing
                         voiceState = .responding
@@ -766,7 +777,11 @@ final class CompanionManager: ObservableObject {
             }
 
             if !Task.isCancelled {
-                // Overlay auto-hides after 12s via finishStreaming() timer
+                // Clear bubble text after 12 seconds
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 12_000_000_000)
+                    self.detectedElementBubbleText = nil
+                }
                 voiceState = .idle
                 scheduleTransientHideIfNeeded()
             }
