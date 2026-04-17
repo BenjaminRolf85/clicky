@@ -87,11 +87,6 @@ final class CompanionManager: ObservableObject {
     /// speaks again so a new response can begin immediately.
     private var currentResponseTask: Task<Void, Never>?
 
-    // MARK: - Response Text Panel
-
-    /// Shows spoken response text in a small panel near the menu bar icon.
-    let responseTextPanel = ResponseTextPanelManager()
-
     // MARK: - Voice-Only Mode
 
     /// When true, the next voice interaction sends NO screenshot to Claude.
@@ -206,7 +201,6 @@ final class CompanionManager: ObservableObject {
         // still granted, show the cursor overlay immediately. If permissions
         // were revoked (e.g. signing change), don't show the cursor — the
         // panel will show the permissions UI instead.
-        responseTextPanel.setup()
         if hasCompletedOnboarding && allPermissionsGranted && isEchoCursorEnabled {
             overlayWindowManager.hasShownOverlayBefore = true
             overlayWindowManager.showOverlay(onScreens: NSScreen.screens, companionManager: self)
@@ -750,7 +744,9 @@ final class CompanionManager: ObservableObject {
                 // until the audio actually starts playing, then switch to responding.
                 if !spokenText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     do {
-                        responseTextPanel.show(text: spokenText)
+                        // Show response text in cursor bubble
+                        companionResponseOverlayManager.showOverlayAndBeginStreaming()
+                        companionResponseOverlayManager.updateStreamingText(spokenText)
                         try await elevenLabsTTSClient.speakText(spokenText)
                         // speakText returns after player.play() — audio is now playing
                         voiceState = .responding
@@ -769,7 +765,7 @@ final class CompanionManager: ObservableObject {
             }
 
             if !Task.isCancelled {
-                responseTextPanel.hide(afterSeconds: 5.0)
+                companionResponseOverlayManager.hideOverlay()
                 voiceState = .idle
                 scheduleTransientHideIfNeeded()
             }
