@@ -766,7 +766,7 @@ final class CompanionManager: ObservableObject {
             }
 
             if !Task.isCancelled {
-                companionResponseOverlayManager.hideOverlay()
+                // Overlay auto-hides after 12s via finishStreaming() timer
                 voiceState = .idle
                 scheduleTransientHideIfNeeded()
             }
