@@ -618,7 +618,8 @@ final class CompanionManager: ObservableObject {
         currentResponseTask?.cancel()
         typewriterTask?.cancel()
         typewriterTask = nil
-        companionResponseOverlayManager.hideOverlay()
+        // Don't hideOverlay here - showOverlayAndBeginStreaming() resets state cleanly
+        companionResponseOverlayManager.updateStreamingText("")
         elevenLabsTTSClient.stopPlayback()
 
         // --- Zippy-style Handoff ---
