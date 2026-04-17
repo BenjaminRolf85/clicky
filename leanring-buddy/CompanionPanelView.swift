@@ -646,15 +646,15 @@ struct CompanionPanelView: View {
 
     private var modelPickerRow: some View {
         HStack {
-            Text("Model")
+            Text("AI Model")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(DS.Colors.textSecondary)
 
             Spacer()
 
             HStack(spacing: 0) {
-                modelOptionButton(label: "Sonnet", modelID: "claude-sonnet-4-6")
-                modelOptionButton(label: "Opus", modelID: "claude-opus-4-6")
+                modelOptionButton(label: "Standard", modelID: "claude-haiku-4-5")
+                modelOptionButton(label: "Advanced", modelID: "claude-sonnet-4-6")
             }
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
