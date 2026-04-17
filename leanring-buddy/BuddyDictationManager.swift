@@ -79,6 +79,8 @@ enum BuddyPushToTalkShortcut {
                 return nil
             case .shiftControl:
                 return nil
+            case .shiftOption:
+                return nil
             case .controlOptionSpace:
                 return [.control, .option]
             case .shiftControlSpace:
