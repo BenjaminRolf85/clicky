@@ -70,6 +70,12 @@ struct CompanionPanelView: View {
                 Spacer()
                     .frame(height: 8)
 
+                fastModeToggleRow
+                    .padding(.horizontal, 16)
+
+                Spacer()
+                    .frame(height: 8)
+
                 echoFeedbackButton
                     .padding(.horizontal, 16)
             }
@@ -602,6 +608,38 @@ struct CompanionPanelView: View {
                 .foregroundColor(DS.Colors.textTertiary)
         }
         .padding(.vertical, 4)
+    }
+
+    // MARK: - Fast Mode Toggle
+
+    private var fastModeToggleRow: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Fast Mode ⚡")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(DS.Colors.textPrimary)
+                Text("Streams sentences to TTS — first word in ~1s")
+                    .font(.system(size: 11))
+                    .foregroundColor(DS.Colors.textTertiary)
+            }
+            Spacer()
+            Toggle("", isOn: Binding(
+                get: { companionManager.fastMode },
+                set: { companionManager.fastMode = $0 }
+            ))
+            .toggleStyle(.switch)
+            .tint(Color(red: 0.48, green: 0.18, blue: 0.75))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: DS.CornerRadius.medium, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.CornerRadius.medium, style: .continuous)
+                .stroke(DS.Colors.borderSubtle, lineWidth: 0.5)
+        )
     }
 
     // MARK: - Model Picker
