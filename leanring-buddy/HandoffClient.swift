@@ -28,8 +28,8 @@ enum HandoffDetector {
     private static let triggers: [(prefix: String, tool: HandoffTool)] = [
         ("nimm claude code", .claudeCode),
         ("use claude code",  .claudeCode),
-        ("nimm openclaw",    .openClaw),
-        ("use openclaw",     .openClaw),
+        ("nimm haily",      .openClaw),
+        ("use haily",        .openClaw),
         ("nimm codex",       .codex),
         ("use codex",        .codex),
     ]
@@ -158,7 +158,7 @@ struct OpenClawClient {
             timeoutSeconds: timeoutSeconds
         )
         return HandoffResult(
-            output: output.isEmpty ? "OpenClaw: Aufgabe erledigt." : output,
+            output: output.isEmpty ? "HAILY: Aufgabe erledigt." : output,
             toolUsed: .openClaw
         )
     }
