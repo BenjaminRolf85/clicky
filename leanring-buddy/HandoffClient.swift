@@ -148,7 +148,8 @@ struct OpenClawClient {
         Aufgabe von Ben: \(prompt)
         """
 
-        var args = ["chat", "--session", sessionKey, "--message", context, "--no-input"]
+        // openclaw agent --agent <session> --message <text> [--gateway-url ...] [--gateway-token ...]
+        var args = ["agent", "--agent", sessionKey, "--message", context]
         if !gatewayUrl.isEmpty   { args += ["--gateway-url",   gatewayUrl] }
         if !gatewayToken.isEmpty { args += ["--gateway-token", gatewayToken] }
 
