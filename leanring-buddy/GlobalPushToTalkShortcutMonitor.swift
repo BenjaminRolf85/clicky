@@ -119,9 +119,9 @@ final class GlobalPushToTalkShortcutMonitor: ObservableObject {
         switch shortcutTransition {
         case .none:
             break
-        case .pressed:
+        case .pressed(let voiceOnly):
             isShortcutCurrentlyPressed = true
-            shortcutTransitionPublisher.send(.pressed(voiceOnly: false))
+            shortcutTransitionPublisher.send(.pressed(voiceOnly: voiceOnly))
         case .released:
             isShortcutCurrentlyPressed = false
             shortcutTransitionPublisher.send(.released)
