@@ -121,7 +121,7 @@ final class GlobalPushToTalkShortcutMonitor: ObservableObject {
             break
         case .pressed:
             isShortcutCurrentlyPressed = true
-            shortcutTransitionPublisher.send(.pressed)
+            shortcutTransitionPublisher.send(.pressed(voiceOnly: false))
         case .released:
             isShortcutCurrentlyPressed = false
             shortcutTransitionPublisher.send(.released)
