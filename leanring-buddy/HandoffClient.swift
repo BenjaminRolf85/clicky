@@ -128,14 +128,15 @@ struct ClaudeCodeClient {
 // MARK: OpenClaw (HTTP via Cloudflare Worker — no local CLI needed)
 
 struct OpenClawClient {
-    var workerBaseURL: String = "https://echo-proxy.benjamin-3ed.workers.dev"
+    // VPS Gateway — called directly from Mac (bypasses Cloudflare)
+    var gatewayBaseURL: String = "http://76.13.140.46:41513"
+    var gatewayToken: String = "CmFT7vobJQlmxkzEZPLXX9uz69VoAJ3j"
     var timeoutSeconds: Int = 120
 
-    // Legacy properties (ignored, kept for .env compat)
+    // Legacy CLI properties (overridden by .env if present)
     var command: String = "openclaw"
     var sessionKey: String = "main"
     var gatewayUrl: String = ""
-    var gatewayToken: String = ""
 
     func run(prompt: String) async throws -> HandoffResult {
         let message = """
@@ -147,7 +148,8 @@ struct OpenClawClient {
         Aufgabe: \(prompt)
         """
 
-        guard let url = URL(string: "\(workerBaseURL)/haily") else {
+        // Direct call to VPS Gateway /v1/chat/completions
+        guard let url = URL(string: "\(gatewayBaseURL)/v1/chat/completions") else {
             throw NSError(domain: "ECHO", code: -1,
                 userInfo: [NSLocalizedDescriptionKey: "Invalid worker URL"])
         }
@@ -155,9 +157,14 @@ struct OpenClawClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(gatewayToken)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = TimeInterval(timeoutSeconds)
 
-        let body = ["message": message]
+        let body: [String: Any] = [
+            "model": "claude-sonnet-4-6",
+            "max_tokens": 1024,
+            "messages": [["role": "user", "content": message]]
+        ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let config = URLSessionConfiguration.default
@@ -174,7 +181,10 @@ struct OpenClawClient {
         }
 
         if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let reply = json["reply"] as? String {
+           let choices = json["choices"] as? [[String: Any]],
+           let first = choices.first,
+           let msg = first["message"] as? [String: Any],
+           let reply = msg["content"] as? String {
             return HandoffResult(output: reply, toolUsed: .openClaw)
         }
 
@@ -204,7 +214,11 @@ struct HandoffRunner {
         openClaw.command          = environment["OPENCLAW_COMMAND"]        ?? "openclaw"
         openClaw.sessionKey       = environment["OPENCLAW_SESSION_KEY"]    ?? "main"
         openClaw.gatewayUrl       = environment["OPENCLAW_GATEWAY_URL"]    ?? ""
-        openClaw.gatewayToken     = environment["OPENCLAW_GATEWAY_TOKEN"]  ?? ""
+        openClaw.gatewayToken     = environment["OPENCLAW_GATEWAY_TOKEN"]  ?? "CmFT7vobJQlmxkzEZPLXX9uz69VoAJ3j"
+        if let url = environment["OPENCLAW_GATEWAY_URL"], !url.isEmpty {
+            openClaw.gatewayBaseURL = url.replacingOccurrences(of: "ws://", with: "http://")
+                                        .replacingOccurrences(of: "wss://", with: "https://")
+        }
         openClaw.timeoutSeconds   = Int(environment["OPENCLAW_TIMEOUT_SECONDS"] ?? "") ?? 120
     }
 
