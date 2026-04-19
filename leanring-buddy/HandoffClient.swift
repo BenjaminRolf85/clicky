@@ -125,41 +125,61 @@ struct ClaudeCodeClient {
     }
 }
 
-// MARK: OpenClaw
+// MARK: OpenClaw (HTTP via Cloudflare Worker — no local CLI needed)
 
 struct OpenClawClient {
+    var workerBaseURL: String = "https://echo-proxy.benjamin-3ed.workers.dev"
+    var timeoutSeconds: Int = 120
+
+    // Legacy properties (ignored, kept for .env compat)
     var command: String = "openclaw"
     var sessionKey: String = "main"
     var gatewayUrl: String = ""
     var gatewayToken: String = ""
-    var timeoutSeconds: Int = 120
 
     func run(prompt: String) async throws -> HandoffResult {
-        // Prepend rich context so HAILY understands the source and intent
-        let context = """
+        let message = """
         [ECHO Handoff]
-        Quelle: ECHO by Echomotion — KI-Companion App auf Bens Mac
+        Quelle: ECHO by Echomotion — macOS Voice Companion
         Nutzer: Benjamin Lange (CEO, Echomotion GmbH)
-        Modus: Sprachbefehl via Push-to-Talk (Ctrl+Option)
-        App: ECHO v1.0 — macOS Voice Assistant mit Screen-Awareness
-        Zweck: Ben hat per Sprache eine Aufgabe an HAILY delegiert.
-        HAILY soll die Aufgabe direkt ausführen und das Ergebnis zurückgeben.
+        Zweck: Ben hat per Sprache eine Aufgabe delegiert.
 
-        Aufgabe von Ben: \(prompt)
+        Aufgabe: \(prompt)
         """
 
-        // openclaw agent --agent <session> --message <text> [--gateway-url ...] [--gateway-token ...]
-        var args = ["agent", "--agent", sessionKey, "--message", context]
-        if !gatewayUrl.isEmpty   { args += ["--gateway-url",   gatewayUrl] }
-        if !gatewayToken.isEmpty { args += ["--gateway-token", gatewayToken] }
+        guard let url = URL(string: "\(workerBaseURL)/haily") else {
+            throw NSError(domain: "ECHO", code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid worker URL"])
+        }
 
-        let output = try await runProcess(
-            command: command,
-            arguments: args,
-            timeoutSeconds: timeoutSeconds
-        )
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = TimeInterval(timeoutSeconds)
+
+        let body = ["message": message]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = TimeInterval(timeoutSeconds)
+        let session = URLSession(configuration: config)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let http = response as? HTTPURLResponse,
+              (200...299).contains(http.statusCode) else {
+            let msg = String(data: data, encoding: .utf8) ?? "Error"
+            throw NSError(domain: "ECHO", code: (response as? HTTPURLResponse)?.statusCode ?? -1,
+                userInfo: [NSLocalizedDescriptionKey: msg])
+        }
+
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let reply = json["reply"] as? String {
+            return HandoffResult(output: reply, toolUsed: .openClaw)
+        }
+
         return HandoffResult(
-            output: output.isEmpty ? "HAILY: Aufgabe erledigt." : output,
+            output: String(data: data, encoding: .utf8) ?? "HAILY: erledigt.",
             toolUsed: .openClaw
         )
     }
