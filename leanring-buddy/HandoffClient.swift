@@ -161,7 +161,7 @@ struct OpenClawClient {
         request.timeoutInterval = TimeInterval(timeoutSeconds)
 
         let body: [String: Any] = [
-            "model": "claude-sonnet-4-6",
+            "model": "openclaw",
             "max_tokens": 1024,
             "messages": [["role": "user", "content": message]]
         ]
