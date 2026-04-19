@@ -170,6 +170,19 @@ enum BuddyPushToTalkShortcut {
         modifierFlags: NSEvent.ModifierFlags,
         wasShortcutPreviouslyPressed: Bool
     ) -> ShortcutTransition {
+        // Check Shift+Option (voice-only mode) — checked before controlOption
+        if let voiceOnlyFlags = voiceOnlyShortcutOption.modifierOnlyFlags,
+           shortcutEventType == .flagsChanged {
+            let exact = modifierFlags.intersection([.shift, .option, .control, .command, .function]) == voiceOnlyFlags
+            if exact && !wasShortcutPreviouslyPressed {
+                return .pressed(voiceOnly: true)
+            }
+            if wasShortcutPreviouslyPressed && !modifierFlags.contains(.shift) {
+                return .released
+            }
+        }
+
+        // Check Ctrl+Option (standard mode with screenshot)
         if let modifierOnlyFlags = currentShortcutOption.modifierOnlyFlags {
             guard shortcutEventType == .flagsChanged else { return .none }
 
