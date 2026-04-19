@@ -28,15 +28,29 @@ enum HandoffDetector {
     private static let triggers: [(prefix: String, tool: HandoffTool)] = [
         ("nimm claude code", .claudeCode),
         ("use claude code",  .claudeCode),
-        // HAILY trigger — multiple variants for robust STT matching
-        ("nimm haily",       .openClaw),
-        ("nim haily",        .openClaw),
-        ("nimm hailey",      .openClaw),
-        ("nimm haili",       .openClaw),
-        ("use haily",        .openClaw),
-        ("hey haily",        .openClaw),
-        ("nimm codex",       .codex),
-        ("use codex",        .codex),
+        // HAILY trigger — all STT phonetic variants (AssemblyAI transcribes HAILY as Heyly/Hailey/etc.)
+        ("nimm haily",   .openClaw),
+        ("nimm heyly",   .openClaw),  // most common AssemblyAI transcription
+        ("nimm hailey",  .openClaw),
+        ("nimm hailee",  .openClaw),
+        ("nimm haili",   .openClaw),
+        ("nimm hayley",  .openClaw),
+        ("nim haily",    .openClaw),
+        ("nim heyly",    .openClaw),
+        ("nutze haily",  .openClaw),  // "nutze" = use in German
+        ("nutze heyly",  .openClaw),
+        ("nutze hailey", .openClaw),
+        ("nutze haili",  .openClaw),
+        ("frag haily",   .openClaw),
+        ("frag heyly",   .openClaw),
+        ("frage haily",  .openClaw),
+        ("frage heyly",  .openClaw),
+        ("use haily",    .openClaw),
+        ("use heyly",    .openClaw),
+        ("hey haily",    .openClaw),
+        ("hey heyly",    .openClaw),
+        ("nimm codex",   .codex),
+        ("use codex",    .codex),
     ]
 
     /// Returns the matched tool and stripped prompt, or nil if no trigger found.
