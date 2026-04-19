@@ -494,10 +494,11 @@ final class CompanionManager: ObservableObject {
 
     private func handleShortcutTransition(_ transition: BuddyPushToTalkShortcut.ShortcutTransition) {
         switch transition {
-        case .pressed:
+        case .pressed(let isVoiceOnly):
             guard !buddyDictationManager.isDictationInProgress else { return }
-            // Don't register push-to-talk while the onboarding video is playing
             guard !showOnboardingVideo else { return }
+            // Set voice-only mode cleanly from the event (no modifier flag workaround)
+            voiceOnlyMode = isVoiceOnly
 
             // Cancel any pending transient hide so the overlay stays visible
             transientHideTask?.cancel()
@@ -530,9 +531,7 @@ final class CompanionManager: ObservableObject {
             }
     
 
-            // Detect voice-only mode: Shift+Option = no screenshot
-            voiceOnlyMode = NSEvent.modifierFlags.contains(.shift) && !NSEvent.modifierFlags.contains(.control)
-            if voiceOnlyMode { print("🎙️ ECHO: Voice-only mode active (Shift+Option)") }
+            if voiceOnlyMode { print("🎙️ ECHO: Voice-only mode (Shift+Option — no screenshot)") }
 
             ECHOAnalytics.trackPushToTalkStarted()
 
