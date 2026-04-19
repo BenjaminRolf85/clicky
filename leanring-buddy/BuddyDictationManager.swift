@@ -91,7 +91,7 @@ enum BuddyPushToTalkShortcut {
 
     enum ShortcutTransition {
         case none
-        case pressed
+        case pressed(voiceOnly: Bool)  // voiceOnly=true when Shift+Option
         case released
     }
 
@@ -102,6 +102,7 @@ enum BuddyPushToTalkShortcut {
     }
 
     static let currentShortcutOption: ShortcutOption = .controlOption
+    static let voiceOnlyShortcutOption: ShortcutOption = .shiftOption
     static let pushToTalkKeyCode: UInt16 = 49 // Space
     static let pushToTalkDisplayText = currentShortcutOption.displayText
     static let pushToTalkTooltipText = "push to talk (\(pushToTalkDisplayText))"
@@ -175,7 +176,7 @@ enum BuddyPushToTalkShortcut {
             let isShortcutCurrentlyPressed = modifierFlags.contains(modifierOnlyFlags)
 
             if isShortcutCurrentlyPressed && !wasShortcutPreviouslyPressed {
-                return .pressed
+                return .pressed(voiceOnly: false)
             }
 
             if !isShortcutCurrentlyPressed && wasShortcutPreviouslyPressed {
@@ -195,7 +196,7 @@ enum BuddyPushToTalkShortcut {
             && keyCode == pushToTalkKeyCode
             && matchesModifierFlags
             && !wasShortcutPreviouslyPressed {
-            return .pressed
+            return .pressed(voiceOnly: false)
         }
 
         if shortcutEventType == .keyUp
