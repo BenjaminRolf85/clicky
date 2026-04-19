@@ -49,26 +49,27 @@ export default {
     }
 
     try {
+      let response: Response;
       if (url.pathname === "/chat") {
-        return await handleChat(request, env);
+        response = await handleChat(request, env);
+      } else if (url.pathname === "/tts") {
+        response = await handleTTS(request, env);
+      } else if (url.pathname === "/transcribe-token") {
+        response = await handleTranscribeToken(env);
+      } else if (url.pathname === "/haily") {
+        response = await handleHaily(request, env);
+      } else {
+        return new Response("Not found", { status: 404, headers: corsHeaders(origin) });
       }
-
-      if (url.pathname === "/tts") {
-        return await handleTTS(request, env);
-      }
-
-      if (url.pathname === "/transcribe-token") {
-        return await handleTranscribeToken(env);
-      }
-
-      if (url.pathname === "/haily") {
-        return await handleHaily(request, env);
-      }
+      // Add CORS headers to all responses
+      const newHeaders = new Headers(response.headers);
+      Object.entries(corsHeaders(origin)).forEach(([k, v]) => newHeaders.set(k, v));
+      return new Response(response.body, { status: response.status, headers: newHeaders });
     } catch (error) {
       console.error(`[${url.pathname}] Unhandled error:`, error);
       return new Response(
         JSON.stringify({ error: String(error) }),
-        { status: 500, headers: { "content-type": "application/json" } }
+        { status: 500, headers: { "content-type": "application/json", ...corsHeaders(origin) } }
       );
     }
 
