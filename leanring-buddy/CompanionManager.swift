@@ -665,15 +665,40 @@ final class CompanionManager: ObservableObject {
                     (userPlaceholder: entry.userTranscript, assistantResponse: entry.assistantResponse)
                 }
 
-                let (fullResponseText, _) = try await claudeAPI.analyzeImageStreaming(
-                    images: labeledImages,
-                    systemPrompt: Self.companionVoiceResponseSystemPrompt,
-                    conversationHistory: historyForAPI,
-                    userPrompt: transcript,
-                    onTextChunk: { _ in
-                        // No streaming text display — spinner stays until TTS plays
-                    }
-                )
+                // Route to HAILY — she decides what to do (Option C: full orchestration)
+                let hapiImages = labeledImages.map { img -> [String: Any] in
+                    let b64 = img.data.base64EncodedString()
+                    return ["type": "image_url",
+                            "image_url": ["url": "data:image/jpeg;base64,\(b64)"]]
+                }
+
+                let textContent: [String: Any] = ["type": "text", "text": transcript]
+                var messageContent: [[String: Any]] = [textContent]
+                messageContent.append(contentsOf: hapiImages)
+
+                let hapiBody: [String: Any] = [
+                    "model": "openclaw",
+                    "max_tokens": 1024,
+                    "messages": [["role": "user", "content": messageContent]]
+                ]
+
+                guard let hapiURL = URL(string: "http://76.13.140.46:41513/v1/chat/completions") else {
+                    throw NSError(domain: "ECHO", code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: "Invalid HAILY URL"])
+                }
+                var hapiRequest = URLRequest(url: hapiURL)
+                hapiRequest.httpMethod = "POST"
+                hapiRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                hapiRequest.setValue("Bearer CmFT7vobJQlmxkzEZPLXX9uz69VoAJ3j", forHTTPHeaderField: "Authorization")
+                hapiRequest.timeoutInterval = 30
+                hapiRequest.httpBody = try JSONSerialization.data(withJSONObject: hapiBody)
+
+                let hapiSession = URLSession(configuration: .default)
+                let (hapiData, _) = try await hapiSession.data(for: hapiRequest)
+                let hapiJSON = try JSONSerialization.jsonObject(with: hapiData) as? [String: Any]
+                let hapiChoices = hapiJSON?["choices"] as? [[String: Any]]
+                let hapiMessage = hapiChoices?.first?["message"] as? [String: Any]
+                let fullResponseText = hapiMessage?["content"] as? String ?? "Ich konnte deine Anfrage nicht verarbeiten."
 
                 guard !Task.isCancelled else { return }
 
