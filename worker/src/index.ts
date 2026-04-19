@@ -18,9 +18,31 @@ interface Env {
   HAILY_GATEWAY_TOKEN: string;
 }
 
+const ALLOWED_ORIGINS = [
+  "https://training.echomotion.ai",
+  "https://echomotion.ai",
+  "http://localhost:3000",
+  "http://localhost:3001",
+];
+
+function corsHeaders(origin: string) {
+  const allowed = ALLOWED_ORIGINS.includes(origin) || origin.includes("netlify.app") || origin.includes("localhost");
+  return {
+    "Access-Control-Allow-Origin": allowed ? origin : "https://training.echomotion.ai",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const origin = request.headers.get("Origin") || "";
+
+    // Handle preflight OPTIONS
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
 
     if (request.method !== "POST") {
       return new Response("Method not allowed", { status: 405 });
