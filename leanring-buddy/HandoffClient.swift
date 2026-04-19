@@ -28,8 +28,13 @@ enum HandoffDetector {
     private static let triggers: [(prefix: String, tool: HandoffTool)] = [
         ("nimm claude code", .claudeCode),
         ("use claude code",  .claudeCode),
-        ("nimm haily",      .openClaw),
+        // HAILY trigger — multiple variants for robust STT matching
+        ("nimm haily",       .openClaw),
+        ("nim haily",        .openClaw),
+        ("nimm hailey",      .openClaw),
+        ("nimm haili",       .openClaw),
         ("use haily",        .openClaw),
+        ("hey haily",        .openClaw),
         ("nimm codex",       .codex),
         ("use codex",        .codex),
     ]
@@ -37,8 +42,10 @@ enum HandoffDetector {
     /// Returns the matched tool and stripped prompt, or nil if no trigger found.
     static func detect(in transcript: String) -> (tool: HandoffTool, prompt: String)? {
         let lower = transcript.lowercased().trimmingCharacters(in: .whitespaces)
+        print("🔍 HandoffDetector: checking '\(lower.prefix(30))'")
         for (prefix, tool) in triggers {
             if lower.hasPrefix(prefix) {
+                print("✅ HandoffDetector: matched '\(prefix)' → \(tool)")
                 let prompt = String(transcript.dropFirst(prefix.count))
                     .trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !prompt.isEmpty else { continue }
