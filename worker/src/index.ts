@@ -14,6 +14,8 @@ interface Env {
   ELEVENLABS_API_KEY: string;
   ELEVENLABS_VOICE_ID: string;
   ASSEMBLYAI_API_KEY: string;
+  HAILY_GATEWAY_URL: string;
+  HAILY_GATEWAY_TOKEN: string;
 }
 
 export default {
@@ -35,6 +37,10 @@ export default {
 
       if (url.pathname === "/transcribe-token") {
         return await handleTranscribeToken(env);
+      }
+
+      if (url.pathname === "/haily") {
+        return await handleHaily(request, env);
       }
     } catch (error) {
       console.error(`[${url.pathname}] Unhandled error:`, error);
@@ -76,6 +82,53 @@ async function handleChat(request: Request, env: Env): Promise<Response> {
       "content-type": response.headers.get("content-type") || "text/event-stream",
       "cache-control": "no-cache",
     },
+  });
+}
+
+async function handleHaily(request: Request, env: Env): Promise<Response> {
+  const { message } = await request.json() as { message: string };
+
+  const gatewayUrl = env.HAILY_GATEWAY_URL || "http://76.13.140.46:41513";
+  const gatewayToken = env.HAILY_GATEWAY_TOKEN || "";
+
+  // Call OpenClaw Gateway agent turn API
+  const response = await fetch(`${gatewayUrl}/v1/agent/turn`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${gatewayToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      session: "agent:main:main",
+      message: `[ECHO Handoff]\nNutzer: Benjamin Lange (CEO, Echomotion GmbH)\nQuelle: ECHO macOS App (Sprachbefehl)\n\nAufgabe: ${message}`,
+    }),
+  });
+
+  if (!response.ok) {
+    // Fallback: try chat completions endpoint
+    const fallback = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${gatewayToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: message }],
+      }),
+    });
+    const data = await fallback.json() as any;
+    const reply = data?.choices?.[0]?.message?.content ?? "Keine Antwort.";
+    return new Response(JSON.stringify({ reply }), {
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  const data = await response.json() as any;
+  const reply = data?.reply ?? data?.content ?? data?.text ?? JSON.stringify(data);
+  return new Response(JSON.stringify({ reply }), {
+    headers: { "content-type": "application/json" },
   });
 }
 
