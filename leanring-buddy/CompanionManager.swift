@@ -671,7 +671,9 @@ final class CompanionManager: ObservableObject {
                             "image_url": ["url": "data:image/jpeg;base64,\(b64)"]]
                 }
 
-                let textContent: [String: Any] = ["type": "text", "text": transcript]
+                // Channel identifier: HAILY knows this is from ECHO Click
+                let echoContext = "[ECHO Click — Sprachkanal von Benjamin Lange]\nNutzer: Benjamin Lange (CEO, Echomotion GmbH)\nKanal: ECHO Click (macOS Voice App)\nModus: \(voiceOnlyMode ? "Voice-only (kein Screenshot)" : "Voice + Screen")\n\nNachricht: \(transcript)"
+                let textContent: [String: Any] = ["type": "text", "text": echoContext]
                 var messageContent: [[String: Any]] = [textContent]
                 messageContent.append(contentsOf: hapiImages)
 
